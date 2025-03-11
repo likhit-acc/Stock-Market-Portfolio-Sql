@@ -1,0 +1,242 @@
+-- stock_market_portfolio.sql
+-- Author: Likhit
+-- Date: 12/03/2025
+
+/* ========================
+   Database Schema Creation
+   ======================== */
+
+-- Drop existing database if needed
+DROP DATABASE IF EXISTS Stock_Market_Portfolio;
+CREATE DATABASE Stock_Market_Portfolio;
+USE Stock_Market_Portfolio;
+
+-- Table: Clients (Investors)
+CREATE TABLE Clients (
+    Client_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    registration_date DATE NOT NULL,
+    last_activity DATETIME,
+    CONSTRAINT valid_email CHECK (email REGEXP '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: Stocks (Financial Instruments)
+CREATE TABLE Stocks (
+    stock_ref INT PRIMARY KEY AUTO_INCREMENT,
+    symbol VARCHAR(10) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    sector ENUM('Technology', 'Finance', 'Healthcare', 'Automotive', 'Energy') NOT NULL,
+    listing_date DATE NOT NULL,
+    market_cap DECIMAL(18,2) COMMENT 'In millions (USD)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: Client_Portfolio (Holdings)
+CREATE TABLE Client_Portfolio (
+    portfolio_no INT PRIMARY KEY AUTO_INCREMENT,
+    Client_id INT NOT NULL,
+    stock_ref INT NOT NULL,
+    shares INT NOT NULL CHECK(shares >= 0),
+    average_cost DECIMAL(10,2),
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (Client_id) REFERENCES Clients(Client_id),
+    FOREIGN KEY (stock_ref) REFERENCES Stocks(stock_ref),
+    INDEX portfolio_idx (Client_id, stock_ref)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: Stock_Price (Market Data)
+CREATE TABLE Stock_Price (
+    price_id INT PRIMARY KEY AUTO_INCREMENT,
+    stock_ref INT NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    volume BIGINT NOT NULL,
+    date DATE NOT NULL,
+    FOREIGN KEY (stock_ref) REFERENCES Stocks(stock_ref),
+    INDEX price_date_idx (date),
+    INDEX stock_price_idx (stock_ref, date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: Transactions (Trade Records)
+CREATE TABLE Transactions (
+    transaction_id INT PRIMARY KEY AUTO_INCREMENT,
+    Client_id INT NOT NULL,
+    stock_ref INT NOT NULL,
+    transaction_type ENUM('Buy', 'Sell') NOT NULL,
+    shares INT NOT NULL CHECK (shares > 0),
+    price DECIMAL(10,2) NOT NULL,
+    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (Client_id) REFERENCES Clients(Client_id),
+    FOREIGN KEY (stock_ref) REFERENCES Stocks(stock_ref),
+    INDEX transaction_date_idx (transaction_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: Users (System Access)
+CREATE TABLE Users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    client_id INT UNIQUE NOT NULL,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash CHAR(64) NOT NULL COMMENT 'SHA-256 hash',
+    salt CHAR(16) NOT NULL,
+    last_login DATETIME,
+    account_status ENUM('Active', 'Disabled', 'Locked') DEFAULT 'Active',
+    FOREIGN KEY (client_id) REFERENCES Clients(client_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table: Security_Log (Audit Trail)
+CREATE TABLE Security_Log (
+    log_id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    activity_type ENUM('Login', 'Logout', 'PWD_CHANGE', 'TRADE') NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    details TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id),
+    INDEX security_timestamp_idx (timestamp)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+/* =====================
+   Sample Data Insertion
+   ===================== */
+
+-- Insert Clients
+INSERT INTO Clients (name, email, registration_date) VALUES
+('Aradhya Jain', 'aradhaya1111@gmail.com', '2024-01-15'),
+('Naivedhya Parmar', 'naivedhya.p@financepro.com', '2024-02-01'),
+('Shreemant Acharya', 's.acharya@capitalbank.co.in', '2023-12-01'),
+('Likhit Kasliwal', 'likhit.k@investments.com', '2024-03-10'),
+('Rohan Mehta', 'rohan.m@tradingfloor.in', '2024-04-05');
+
+-- Insert Stocks
+INSERT INTO Stocks (symbol, name, sector, listing_date, market_cap) VALUES
+('BSE', 'Bombay Stock Exchange', 'Finance', '1875-01-01', 4500000.00),
+('SBI', 'State Bank of India', 'Finance', '1955-07-01', 650000.00),
+('INFY', 'Infosys Limited', 'Technology', '1993-11-23', 85000.00),
+('TATAMOTORS', 'Tata Motors Limited', 'Automotive', '1945-09-01', 35000.00),
+('RELIANCE', 'Reliance Industries', 'Energy', '1973-11-08', 250000.00);
+
+-- Insert Stock Prices
+INSERT INTO Stock_Price (stock_ref, price, volume, date) VALUES
+(1, 5620.09, 1500000, '2024-05-01'),
+(2, 716.90, 5000000, '2024-05-01'),
+(3, 1815.00, 2500000, '2024-05-01'),
+(4, 670.55, 3500000, '2024-05-01'),
+(5, 2850.75, 4500000, '2024-05-01'),
+(1, 5650.25, 1400000, '2024-05-02'),
+(2, 720.45, 4800000, '2024-05-02');
+
+-- Insert Portfolio Data
+INSERT INTO Client_Portfolio (Client_id, stock_ref, shares, average_cost) VALUES
+(1, 1, 150, 5600.00),
+(2, 3, 500, 1800.00),
+(3, 2, 1000, 700.00),
+(4, 5, 200, 2800.00),
+(5, 4, 750, 650.00);
+
+-- Insert Transactions
+INSERT INTO Transactions (Client_id, stock_ref, transaction_type, shares, price) VALUES
+(1, 1, 'Buy', 100, 5605.00),
+(2, 3, 'Buy', 200, 1810.00),
+(3, 2, 'Buy', 500, 715.00),
+(4, 5, 'Buy', 100, 2845.00),
+(5, 4, 'Buy', 300, 665.00);
+
+/* ====================
+   Security Components
+   ==================== */
+
+DELIMITER $$
+
+-- Trigger: Validate Stock Sales
+CREATE TRIGGER Validate_Sell_Transaction
+BEFORE INSERT ON Transactions
+FOR EACH ROW
+BEGIN
+    DECLARE available_shares INT;
+    DECLARE client_name VARCHAR(100);
+    
+    IF NEW.transaction_type = 'Sell' THEN
+        SELECT COALESCE(cp.shares, 0), c.name 
+        INTO available_shares, client_name
+        FROM Clients c
+        LEFT JOIN Client_Portfolio cp 
+            ON c.client_id = cp.client_id 
+            AND cp.stock_ref = NEW.stock_ref
+        WHERE c.client_id = NEW.client_id;
+        
+        IF available_shares < NEW.shares THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = CONCAT('Insufficient shares: ', client_name, 
+                                      ' only has ', available_shares, 
+                                      ' shares of ', 
+                                      (SELECT symbol FROM Stocks WHERE stock_ref = NEW.stock_ref));
+        END IF;
+    END IF;
+END$$
+
+-- Trigger: Update Portfolio on Transaction
+CREATE TRIGGER Update_Portfolio_After_Transaction
+AFTER INSERT ON Transactions
+FOR EACH ROW
+BEGIN
+    IF NEW.transaction_type = 'Buy' THEN
+        INSERT INTO Client_Portfolio (Client_id, stock_ref, shares, average_cost)
+        VALUES (NEW.Client_id, NEW.stock_ref, NEW.shares, NEW.price)
+        ON DUPLICATE KEY UPDATE 
+            shares = shares + NEW.shares,
+            average_cost = ((shares * average_cost) + (NEW.shares * NEW.price)) / (shares + NEW.shares);
+    ELSE
+        UPDATE Client_Portfolio
+        SET shares = shares - NEW.shares
+        WHERE Client_id = NEW.Client_id 
+          AND stock_ref = NEW.stock_ref;
+    END IF;
+END$$
+
+DELIMITER ;
+
+/* ====================
+   Sample Queries
+   ==================== */
+
+-- Query 1: Current Portfolio Value
+SELECT 
+    c.name AS Client,
+    s.symbol AS Stock,
+    cp.shares AS Shares,
+    sp.price AS Current_Price,
+    ROUND(cp.shares * sp.price, 2) AS Value
+FROM Client_Portfolio cp
+JOIN Clients c USING (client_id)
+JOIN Stocks s USING (stock_ref)
+JOIN (SELECT stock_ref, MAX(date) AS latest_date 
+      FROM Stock_Price GROUP BY stock_ref) latest
+    ON s.stock_ref = latest.stock_ref
+JOIN Stock_Price sp 
+    ON sp.stock_ref = latest.stock_ref 
+    AND sp.date = latest.latest_date;
+
+-- Query 2: Transaction History
+SELECT 
+    t.transaction_date AS Date,
+    c.name AS Client,
+    s.symbol AS Stock,
+    t.transaction_type AS Type,
+    t.shares AS Quantity,
+    t.price AS Price,
+    ROUND(t.shares * t.price, 2) AS Value
+FROM Transactions t
+JOIN Clients c USING (client_id)
+JOIN Stocks s USING (stock_ref)
+ORDER BY t.transaction_date DESC
+LIMIT 10;
+
+-- Query 3: User Activity Audit
+SELECT 
+    u.username,
+    sl.activity_type,
+    sl.timestamp,
+    sl.ip_address
+FROM Security_Log sl
+JOIN Users u USING (user_id)
+ORDER BY sl.timestamp DESC
+LIMIT 20;
